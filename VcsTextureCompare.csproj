@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>VcsTextureCompare</RootNamespace>
+    <AssemblyName>VcsTextureCompare</AssemblyName>
+    <ApplicationTitle>SVN 贴图对比</ApplicationTitle>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <NuGetAudit>false</NuGetAudit>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\app.ico"/>
+    <Resource Include="Assets\app.png"/>
+  </ItemGroup>
+</Project>
