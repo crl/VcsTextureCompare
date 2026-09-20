@@ -1,0 +1,96 @@
+<UserControl x:Class="VcsTextureCompare.Compare.ImageCompareView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:VcsTextureCompare"
+             Background="Transparent"
+             Focusable="True"
+             ClipToBounds="True">
+    <UserControl.Resources>
+        <DrawingBrush x:Key="CheckerBrush" Viewport="0,0,16,16" ViewportUnits="Absolute" TileMode="Tile">
+            <DrawingBrush.Drawing>
+                <DrawingGroup>
+                    <GeometryDrawing Brush="#FF1A1A1A">
+                        <GeometryDrawing.Geometry>
+                            <RectangleGeometry Rect="0,0,16,16"/>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                    <GeometryDrawing Brush="#FF242424">
+                        <GeometryDrawing.Geometry>
+                            <GeometryGroup>
+                                <RectangleGeometry Rect="0,0,8,8"/>
+                                <RectangleGeometry Rect="8,8,8,8"/>
+                            </GeometryGroup>
+                        </GeometryDrawing.Geometry>
+                    </GeometryDrawing>
+                </DrawingGroup>
+            </DrawingBrush.Drawing>
+        </DrawingBrush>
+    </UserControl.Resources>
+    <Grid>
+        <Border x:Name="Viewport" Background="{StaticResource CheckerBrush}" ClipToBounds="True"
+                CornerRadius="16"
+                MouseWheel="Viewport_OnMouseWheel"
+                MouseLeftButtonDown="Viewport_OnMouseLeftButtonDown"
+                MouseLeftButtonUp="Viewport_OnMouseLeftButtonUp"
+                MouseMove="Viewport_OnMouseMove"
+                MouseRightButtonDown="Viewport_OnMouseRightButtonDown"
+                MouseRightButtonUp="Viewport_OnMouseRightButtonUp"
+                MouseDown="Viewport_OnMouseDown"
+                MouseUp="Viewport_OnMouseUp"
+                LostMouseCapture="Viewport_OnLostMouseCapture"
+                SizeChanged="Viewport_OnSizeChanged">
+            <Canvas x:Name="ContentRoot" HorizontalAlignment="Left" VerticalAlignment="Top"
+                    RenderTransformOrigin="0,0">
+                <Canvas.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="ZoomScale" ScaleX="1" ScaleY="1"/>
+                        <TranslateTransform x:Name="PanOffset"/>
+                    </TransformGroup>
+                </Canvas.RenderTransform>
+                <Canvas x:Name="ImageLayer">
+                    <Image x:Name="RightImage" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                    <Image x:Name="LeftImage" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                    <Image x:Name="HeatmapImage" Stretch="None" RenderOptions.BitmapScalingMode="NearestNeighbor" Visibility="Collapsed"/>
+                    <Rectangle x:Name="Divider" Width="1" Fill="#E6FFFFFF" IsHitTestVisible="False" Visibility="Collapsed"/>
+                </Canvas>
+                <Grid x:Name="Handle" Width="44" Height="44" Cursor="SizeWE" IsHitTestVisible="False" Visibility="Collapsed">
+                    <Ellipse x:Name="HandleLens" Width="44" Height="44"
+                             HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Ellipse.Fill>
+                            <VisualBrush x:Name="HandleLensBrush" Stretch="Fill"
+                                         ViewboxUnits="Absolute"
+                                         Viewport="0,0,1,1" ViewportUnits="RelativeToBoundingBox"/>
+                        </Ellipse.Fill>
+                        <Ellipse.Effect>
+                            <BlurEffect Radius="14" KernelType="Gaussian"/>
+                        </Ellipse.Effect>
+                    </Ellipse>
+                    <local:GlassSheen x:Name="HandleSheen" CornerRadius="22"/>
+                    <Canvas x:Name="HandleGlyphs" Width="44" Height="44"
+                            HorizontalAlignment="Left" VerticalAlignment="Center" IsHitTestVisible="False">
+                        <Path Data="M 16,13 L 10,22 L 16,31" Stroke="#F5F5F7" StrokeThickness="1.8"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                        <Path Data="M 28,13 L 34,22 L 28,31" Stroke="#F5F5F7" StrokeThickness="1.8"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Fill="Transparent"/>
+                    </Canvas>
+                </Grid>
+            </Canvas>
+        </Border>
+        <Border x:Name="LeftLabelHost" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="16,12,0,0"
+                Background="#28FFFFFF" BorderBrush="#55FFFFFF" BorderThickness="1"
+                CornerRadius="8" Padding="10,4" IsHitTestVisible="False" Visibility="Collapsed">
+            <TextBlock x:Name="LeftLabelText" Text="历史" FontSize="11" Foreground="#F5F5F7"/>
+        </Border>
+        <Border x:Name="RightLabelHost" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,12,16,0"
+                Background="#28FFFFFF" BorderBrush="#55FFFFFF" BorderThickness="1"
+                CornerRadius="8" Padding="10,4" IsHitTestVisible="False" Visibility="Collapsed">
+            <TextBlock x:Name="RightLabelText" Text="本地" FontSize="11" Foreground="#F5F5F7"/>
+        </Border>
+        <StackPanel x:Name="HintText" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+            <TextBlock Text="拖入贴图" FontSize="14" FontWeight="Medium"
+                       Foreground="#F2F2F3" HorizontalAlignment="Center"/>
+            <TextBlock Text="或点左侧打开" Foreground="#F5F5F7"
+                       FontSize="12" Margin="0,8,0,0" HorizontalAlignment="Center"/>
+        </StackPanel>
+    </Grid>
+</UserControl>
