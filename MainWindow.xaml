@@ -1,0 +1,185 @@
+<Window x:Class="VcsTextureCompare.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:compare="clr-namespace:VcsTextureCompare.Compare"
+        xmlns:local="clr-namespace:VcsTextureCompare"
+        Title="贴图对比"
+        Height="820" Width="1280"
+        MinHeight="560" MinWidth="960"
+        WindowStartupLocation="CenterScreen"
+        Icon="pack://application:,,,/Assets/app.png"
+        Background="{StaticResource Brush.Bg}"
+        AllowDrop="True"
+        Drop="Window_OnDrop"
+        DragOver="Window_OnDragOver"
+        PreviewKeyDown="Window_OnPreviewKeyDown"
+        Closed="Window_OnClosed">
+    <Grid Margin="12">
+        <Grid x:Name="AppChrome">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="268" MinWidth="228"/>
+            <ColumnDefinition Width="12"/>
+            <ColumnDefinition Width="*" MinWidth="480"/>
+        </Grid.ColumnDefinitions>
+
+        <Border x:Name="SidebarPanel" Grid.Column="0" Style="{StaticResource GlassPanel}" Padding="18,16">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Margin="0,0,0,18">
+                    <TextBlock Text="贴图对比" FontSize="22" FontWeight="SemiBold"/>
+                    <TextBlock Text="SVN 历史" Style="{StaticResource MutedText}" FontSize="12" Margin="0,4,0,0"/>
+                </StackPanel>
+
+                <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14" LastChildFill="True">
+                    <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}" Padding="8,0" Height="28"
+                            Content="打开" Click="OpenButton_OnClick" ToolTip="打开贴图"/>
+                    <TextBox x:Name="PathBox" IsReadOnly="True" VerticalAlignment="Center"
+                             ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                </DockPanel>
+
+                <TextBlock x:Name="FileInfoText" DockPanel.Dock="Top" Style="{StaticResource MutedText}"
+                           FontSize="11" TextWrapping="Wrap" LineHeight="16" Margin="0,0,0,14"
+                           Text="打开工作副本中的贴图，或从 TortoiseSVN Diff 拉起。"/>
+
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,16">
+                    <Button Content="对比 BASE" Style="{StaticResource AccentButton}" MinWidth="96" Height="32"
+                            Click="CompareBase_OnClick"/>
+                    <Button Content="刷新" Style="{StaticResource GhostButton}" Margin="6,0,0,0" Click="RefreshLog_OnClick"/>
+                </StackPanel>
+
+                <TextBlock DockPanel.Dock="Top" Text="修订" Style="{StaticResource SectionLabel}"/>
+
+                <TextBlock x:Name="ErrorText" DockPanel.Dock="Bottom" Foreground="{StaticResource Brush.Danger}"
+                           TextWrapping="Wrap" FontSize="12" Margin="0,8,0,0"/>
+                <Button DockPanel.Dock="Bottom" Content="注册 TortoiseSVN Diff"
+                        HorizontalAlignment="Stretch" Height="32" Click="Register_OnClick" Margin="0,10,0,0"/>
+
+                <Grid x:Name="LogSelectHost" ClipToBounds="True">
+                    <local:GlassSheen x:Name="LogSelectThumb" CornerRadius="12"
+                                      HorizontalAlignment="Left" VerticalAlignment="Top" Visibility="Collapsed">
+                        <local:GlassSheen.RenderTransform>
+                            <TranslateTransform x:Name="LogSelectTransform"/>
+                        </local:GlassSheen.RenderTransform>
+                    </local:GlassSheen>
+                    <ListView x:Name="LogList" SelectionChanged="LogList_OnSelectionChanged"
+                              ScrollViewer.ScrollChanged="LogList_OnScrollChanged"
+                              VirtualizingPanel.IsVirtualizing="False"
+                              IsTextSearchEnabled="False">
+                    <ListView.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <DockPanel LastChildFill="True">
+                                    <TextBlock Text="{Binding RevisionText}" Style="{StaticResource MonoText}"
+                                               FontSize="12" Width="56"/>
+                                    <TextBlock Text="{Binding DateText}" DockPanel.Dock="Right"
+                                               FontSize="11"/>
+                                    <TextBlock Text="{Binding AuthorText}" FontSize="12"
+                                               TextTrimming="CharacterEllipsis" Margin="0,0,8,0"/>
+                                </DockPanel>
+                                <TextBlock Text="{Binding MessageText}" FontSize="11"
+                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                </Grid>
+            </DockPanel>
+        </Border>
+
+        <Grid Grid.Column="2">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <compare:ImageCompareView x:Name="CompareView" Margin="0,52,0,48"/>
+
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Orientation="Horizontal" Margin="8,8,8,0">
+                <Border Style="{StaticResource GlassBar}" Padding="3">
+                    <Grid x:Name="ModeSegmentHost" Height="32" SizeChanged="ModeSegmentHost_OnSizeChanged">
+                        <local:GlassSheen x:Name="ModeSegmentThumb" CornerRadius="9"
+                                          HorizontalAlignment="Left" VerticalAlignment="Top" Width="56" Height="32">
+                            <local:GlassSheen.RenderTransform>
+                                <TranslateTransform x:Name="ModeSegmentTransform"/>
+                            </local:GlassSheen.RenderTransform>
+                        </local:GlassSheen>
+                        <UniformGrid Columns="4">
+                            <RadioButton x:Name="ModeWipe" Content="拉杆" Style="{StaticResource SegmentButton}"
+                                         GroupName="Mode" IsChecked="True" Checked="Mode_OnChecked"/>
+                            <RadioButton x:Name="ModeHeatmap" Content="热力" Style="{StaticResource SegmentButton}"
+                                         GroupName="Mode" Checked="Mode_OnChecked"/>
+                            <RadioButton x:Name="ModeOverlay" Content="叠加" Style="{StaticResource SegmentButton}"
+                                         GroupName="Mode" Checked="Mode_OnChecked"/>
+                            <RadioButton x:Name="ModeBlink" Content="闪烁" Style="{StaticResource SegmentButton}"
+                                         GroupName="Mode" Checked="Mode_OnChecked"/>
+                        </UniformGrid>
+                    </Grid>
+                </Border>
+                <StackPanel x:Name="OverlayPanel" Orientation="Horizontal" VerticalAlignment="Center"
+                            Margin="12,0,0,0" Visibility="Collapsed">
+                    <TextBlock Text="透明度" FontSize="11" Margin="0,0,8,0"/>
+                    <Slider x:Name="OverlaySlider" Width="100" Minimum="0" Maximum="1" Value="0.5"
+                            VerticalAlignment="Center" ValueChanged="OverlaySlider_OnValueChanged"/>
+                </StackPanel>
+            </StackPanel>
+
+            <Border Style="{StaticResource GlassBar}" HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Margin="8,8,8,0" Padding="3">
+                <Grid x:Name="FitSegmentHost" MinWidth="132" Height="32"
+                      SizeChanged="FitSegmentHost_OnSizeChanged">
+                    <local:GlassSheen x:Name="FitSegmentThumb" CornerRadius="9"
+                                      HorizontalAlignment="Left" VerticalAlignment="Top" Width="66" Height="32">
+                        <local:GlassSheen.RenderTransform>
+                            <TranslateTransform x:Name="FitSegmentTransform"/>
+                        </local:GlassSheen.RenderTransform>
+                    </local:GlassSheen>
+                    <UniformGrid Columns="2">
+                        <RadioButton x:Name="FitModeFit" Content="适配" Style="{StaticResource SegmentButton}"
+                                     GroupName="FitZoom" IsChecked="True" Checked="FitSegment_OnChecked"
+                                     ToolTip="适配窗口（F）"/>
+                        <RadioButton x:Name="FitModeActual" Content="1:1" Style="{StaticResource SegmentButton}"
+                                     GroupName="FitZoom" Checked="FitSegment_OnChecked"
+                                     ToolTip="原始像素"/>
+                    </UniformGrid>
+                </Grid>
+            </Border>
+
+            <Border Style="{StaticResource GlassBar}" VerticalAlignment="Bottom" Margin="8,0,8,8" Padding="14,8">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="阈值" Style="{StaticResource MutedText}" FontSize="11" Margin="0,0,8,0"/>
+                        <Slider x:Name="ThresholdSlider" Width="120" Minimum="0" Maximum="64" Value="0"
+                                VerticalAlignment="Center" ValueChanged="ThresholdSlider_OnValueChanged"/>
+                        <TextBlock x:Name="ThresholdText" Text="0" Style="{StaticResource MonoText}"
+                                   Foreground="{StaticResource Brush.MutedFg}" Width="24" Margin="8,0,0,0" FontSize="11"/>
+                    </StackPanel>
+                    <TextBlock x:Name="StatsText" Text="尚未对比" Style="{StaticResource MutedText}" FontSize="11"/>
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        </Grid>
+
+        <Border x:Name="BusyOverlay" Background="#4D000000" Visibility="Collapsed" CornerRadius="16">
+            <Grid x:Name="BusyCard" Width="240" MinHeight="96"
+                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border CornerRadius="18" ClipToBounds="True">
+                    <Border.Effect>
+                        <BlurEffect Radius="12" KernelType="Gaussian"/>
+                    </Border.Effect>
+                    <Border>
+                        <Border.Background>
+                            <VisualBrush x:Name="BusyLensBrush" Stretch="Fill"
+                                         ViewboxUnits="Absolute"
+                                         Viewport="0,0,1,1" ViewportUnits="RelativeToBoundingBox"/>
+                        </Border.Background>
+                    </Border>
+                </Border>
+                <local:GlassSheen CornerRadius="18"/>
+                <StackPanel Margin="28,24" VerticalAlignment="Center">
+                    <TextBlock x:Name="BusyText" Text="加载中" FontSize="14" FontWeight="Medium"
+                               HorizontalAlignment="Center" Margin="0,0,0,14"/>
+                    <ProgressBar IsIndeterminate="True"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
