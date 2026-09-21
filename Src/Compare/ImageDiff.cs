@@ -153,6 +153,7 @@ public readonly struct DiffStats
 public enum CompareMode
 {
     Wipe,
+    SideBySide,
     Heatmap,
     Overlay,
     Blink

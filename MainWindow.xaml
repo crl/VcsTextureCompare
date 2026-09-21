@@ -101,9 +101,11 @@
                                 <TranslateTransform x:Name="ModeSegmentTransform"/>
                             </local:GlassSheen.RenderTransform>
                         </local:GlassSheen>
-                        <UniformGrid Columns="4">
+                        <UniformGrid Columns="5">
                             <RadioButton x:Name="ModeWipe" Content="拉杆" Style="{StaticResource SegmentButton}"
                                          GroupName="Mode" IsChecked="True" Checked="Mode_OnChecked"/>
+                            <RadioButton x:Name="ModeSide" Content="左右" Style="{StaticResource SegmentButton}"
+                                         GroupName="Mode" Checked="Mode_OnChecked"/>
                             <RadioButton x:Name="ModeHeatmap" Content="热力" Style="{StaticResource SegmentButton}"
                                          GroupName="Mode" Checked="Mode_OnChecked"/>
                             <RadioButton x:Name="ModeOverlay" Content="叠加" Style="{StaticResource SegmentButton}"

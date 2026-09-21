@@ -37,6 +37,7 @@ public partial class ImageCompareView : UserControl
     private const double HandleHitPadding = 16;
     private const double HandleMagnify = 1.42;
     private const double HandleRest = 44;
+    private const double SideGap = 8;
     private const double FilmOmega = 28;
     private const double FilmZeta = 0.48;
     /// <summary>拖尾只跟拉杆速度走：约 800px/s 拉到 32%。</summary>
@@ -132,17 +133,6 @@ public partial class ImageCompareView : UserControl
         LeftImage.Source = left;
         RightImage.Source = right;
         HeatmapImage.Source = heatmap;
-        _contentWidth = Math.Max(left?.PixelWidth ?? 0, right?.PixelWidth ?? 0);
-        _contentHeight = Math.Max(left?.PixelHeight ?? 0, right?.PixelHeight ?? 0);
-        if (_heatmap != null)
-        {
-            _contentWidth = Math.Max(_contentWidth, _heatmap.PixelWidth);
-            _contentHeight = Math.Max(_contentHeight, _heatmap.PixelHeight);
-        }
-        ContentRoot.Width = Math.Max(_contentWidth, 1);
-        ContentRoot.Height = Math.Max(_contentHeight, 1);
-        ImageLayer.Width = ContentRoot.Width;
-        ImageLayer.Height = ContentRoot.Height;
         SizeImage(LeftImage, left);
         SizeImage(RightImage, right);
         SizeImage(HeatmapImage, heatmap);
@@ -247,9 +237,12 @@ public partial class ImageCompareView : UserControl
             view.UpdateWipeClips();
             return;
         }
+        var oldSide = e.Property == ModeProperty && e.OldValue is CompareMode om && om == CompareMode.SideBySide;
         view.UpdateBlinkTimer();
         view.ApplyModeVisibility();
         view.UpdateWipeChrome();
+        if (e.Property == ModeProperty && (view.Mode == CompareMode.SideBySide || oldSide))
+            view.Fit();
     }
 
     private static void OnLabelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -274,8 +267,20 @@ public partial class ImageCompareView : UserControl
         var hasPair = _left != null && _right != null;
         switch (Mode)
         {
+            case CompareMode.SideBySide:
+                HeatmapImage.Visibility = Visibility.Collapsed;
+                LeftImage.Visibility = _left != null ? Visibility.Visible : Visibility.Collapsed;
+                RightImage.Visibility = _right != null ? Visibility.Visible : Visibility.Collapsed;
+                LeftImage.Opacity = 1;
+                RightImage.Opacity = 1;
+                ClearClips();
+                StopWipeSim(snap: true);
+                Handle.Visibility = Visibility.Collapsed;
+                LayoutSideBySide();
+                break;
             case CompareMode.Heatmap:
                 // 本地图垫底，热力图只标差异；否则图集空白会被涂成一片黑。
+                ResetStackedLayout();
                 LeftImage.Visibility = Visibility.Collapsed;
                 RightImage.Visibility = _right != null ? Visibility.Visible : Visibility.Collapsed;
                 HeatmapImage.Visibility = _heatmap != null ? Visibility.Visible : Visibility.Collapsed;
@@ -286,6 +291,7 @@ public partial class ImageCompareView : UserControl
                 SetWipeChromeVisible(false);
                 break;
             case CompareMode.Overlay:
+                ResetStackedLayout();
                 LeftImage.Visibility = _left != null ? Visibility.Visible : Visibility.Collapsed;
                 RightImage.Visibility = _right != null ? Visibility.Visible : Visibility.Collapsed;
                 HeatmapImage.Visibility = Visibility.Collapsed;
@@ -295,6 +301,7 @@ public partial class ImageCompareView : UserControl
                 SetWipeChromeVisible(false);
                 break;
             case CompareMode.Blink:
+                ResetStackedLayout();
                 HeatmapImage.Visibility = Visibility.Collapsed;
                 ClearClips();
                 LeftImage.Opacity = 1;
@@ -304,6 +311,7 @@ public partial class ImageCompareView : UserControl
                 SetWipeChromeVisible(false);
                 break;
             default:
+                ResetStackedLayout();
                 HeatmapImage.Visibility = Visibility.Collapsed;
                 RightImage.Visibility = _right != null ? Visibility.Visible : Visibility.Collapsed;
                 LeftImage.Visibility = _left != null ? Visibility.Visible : Visibility.Collapsed;
@@ -313,6 +321,55 @@ public partial class ImageCompareView : UserControl
                 UpdateWipeClips();
                 break;
         }
+    }
+
+    /// <summary>历史在左、本地在右；缺的一侧用另一侧尺寸占位。</summary>
+    private void LayoutSideBySide()
+    {
+        var lw = _left?.PixelWidth ?? _right?.PixelWidth ?? 0;
+        var lh = _left?.PixelHeight ?? _right?.PixelHeight ?? 0;
+        var rw = _right?.PixelWidth ?? _left?.PixelWidth ?? 0;
+        var rh = _right?.PixelHeight ?? _left?.PixelHeight ?? 0;
+        _contentWidth = lw + SideGap + rw;
+        _contentHeight = Math.Max(lh, rh);
+        ApplyContentSize();
+        Canvas.SetLeft(LeftImage, 0);
+        Canvas.SetTop(LeftImage, 0);
+        Canvas.SetLeft(RightImage, lw + SideGap);
+        Canvas.SetTop(RightImage, 0);
+        Divider.Visibility = _contentWidth > 1 ? Visibility.Visible : Visibility.Collapsed;
+        Divider.Height = _contentHeight;
+        Canvas.SetLeft(Divider, lw + SideGap / 2 - 0.5);
+        Canvas.SetTop(Divider, 0);
+    }
+
+    private void ResetStackedLayout()
+    {
+        MeasureStackedSize();
+        ApplyContentSize();
+        Canvas.SetLeft(LeftImage, 0);
+        Canvas.SetTop(LeftImage, 0);
+        Canvas.SetLeft(RightImage, 0);
+        Canvas.SetTop(RightImage, 0);
+    }
+
+    private void MeasureStackedSize()
+    {
+        _contentWidth = Math.Max(_left?.PixelWidth ?? 0, _right?.PixelWidth ?? 0);
+        _contentHeight = Math.Max(_left?.PixelHeight ?? 0, _right?.PixelHeight ?? 0);
+        if (_heatmap != null)
+        {
+            _contentWidth = Math.Max(_contentWidth, _heatmap.PixelWidth);
+            _contentHeight = Math.Max(_contentHeight, _heatmap.PixelHeight);
+        }
+    }
+
+    private void ApplyContentSize()
+    {
+        ContentRoot.Width = Math.Max(_contentWidth, 1);
+        ContentRoot.Height = Math.Max(_contentHeight, 1);
+        ImageLayer.Width = ContentRoot.Width;
+        ImageLayer.Height = ContentRoot.Height;
     }
 
     private void SetWipeChromeVisible(bool visible)
@@ -599,7 +656,7 @@ public partial class ImageCompareView : UserControl
         _impactV = 0;
         _eps = 0;
         _epsV = 0;
-        if (snap && _contentWidth > 1 && Handle != null)
+        if (snap && Mode == CompareMode.Wipe && _contentWidth > 1 && Handle != null)
             LayoutWipe(_contentWidth * Math.Clamp(WipeRatio, 0, 1));
     }
 

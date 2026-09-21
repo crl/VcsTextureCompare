@@ -58,9 +58,7 @@ public partial class MainWindow : Window
     {
         if (_startup.DirectCompare)
         {
-            CompareView.LeftLabel = string.IsNullOrWhiteSpace(_startup.LeftTitle) ? "历史" : _startup.LeftTitle;
-            CompareView.RightLabel = string.IsNullOrWhiteSpace(_startup.RightTitle) ? "本地" : _startup.RightTitle;
-            await LoadPairAsync(_startup.LeftPath!, _startup.RightPath!, bindLocal: _startup.RightPath);
+            await LoadPairAsync(_startup.LeftPath, _startup.RightPath, bindLocal: _startup.RightPath);
             return;
         }
         if (!string.IsNullOrWhiteSpace(_startup.RightPath))
@@ -137,7 +135,9 @@ public partial class MainWindow : Window
         MoveModeSegmentThumb(animate: IsLoaded);
         if (!IsLoaded || CompareView == null || OverlayPanel == null)
             return;
-        if (ModeHeatmap?.IsChecked == true)
+        if (ModeSide?.IsChecked == true)
+            CompareView.Mode = CompareMode.SideBySide;
+        else if (ModeHeatmap?.IsChecked == true)
             CompareView.Mode = CompareMode.Heatmap;
         else if (ModeOverlay?.IsChecked == true)
             CompareView.Mode = CompareMode.Overlay;
@@ -217,10 +217,11 @@ public partial class MainWindow : Window
     {
         if (ModeSegmentThumb == null || ModeSegmentHost == null || ModeSegmentTransform == null)
             return;
-        var slot = Math.Max(0, ModeSegmentHost.ActualWidth / 4);
-        var index = ModeHeatmap?.IsChecked == true ? 1
-            : ModeOverlay?.IsChecked == true ? 2
-            : ModeBlink?.IsChecked == true ? 3
+        var slot = Math.Max(0, ModeSegmentHost.ActualWidth / 5);
+        var index = ModeSide?.IsChecked == true ? 1
+            : ModeHeatmap?.IsChecked == true ? 2
+            : ModeOverlay?.IsChecked == true ? 3
+            : ModeBlink?.IsChecked == true ? 4
             : 0;
         BubbleMotion.Go(ModeSegmentTransform, ModeSegmentThumb, alongX: true,
             slot * index, slot, ModeSegmentHost.ActualHeight, animate);
@@ -285,26 +286,44 @@ public partial class MainWindow : Window
         Title = "SVN 贴图对比 - " + Path.GetFileName(path);
         SetError(null);
         await LoadRightAsync(path);
+        if (_startup.FromTortoise || IsSvnTempPath(path))
+            return;
         await ReloadLogAsync(path);
         await CompareRevisionAsync("BASE");
         SelectLogByRevision(SvnLogEntry.BaseRevision);
     }
 
-    /// <summary>Tortoise 传入的两张现成文件。bindLocal 有值时继续拉该路径的 SVN 日志。</summary>
-    private async Task LoadPairAsync(string leftPath, string rightPath, string? bindLocal)
+    /// <summary>Tortoise 传入的左右文件；新增/删除时允许一侧为空。</summary>
+    private async Task LoadPairAsync(string? leftPath, string? rightPath, string? bindLocal)
     {
         SetError(null);
-        _localPath = bindLocal != null && File.Exists(bindLocal) ? Path.GetFullPath(bindLocal) : Path.GetFullPath(rightPath);
-        PathBox.Text = _localPath;
-        Title = "SVN 贴图对比 - " + Path.GetFileName(_localPath);
+        var display = StartupArgs.IsUsable(rightPath) ? rightPath
+            : StartupArgs.IsUsable(leftPath) ? leftPath
+            : bindLocal;
+        _localPath = display != null && File.Exists(display) ? Path.GetFullPath(display) : display;
+        PathBox.Text = _localPath ?? "";
+        Title = "SVN 贴图对比 - " + (string.IsNullOrEmpty(_localPath) ? "Diff" : Path.GetFileName(_localPath));
         var cts = ReplaceCts();
         SetBusy(true, "正在解码贴图…");
         try
         {
-            var leftTask = ImageLoader.LoadAsync(leftPath, cts.Token);
-            var rightTask = ImageLoader.LoadAsync(rightPath, cts.Token);
-            _leftTexture = await leftTask;
-            _rightTexture = await rightTask;
+            _leftTexture = await TryLoadTextureAsync(leftPath, cts.Token);
+            _rightTexture = await TryLoadTextureAsync(rightPath, cts.Token);
+            if (_leftTexture == null && _rightTexture == null)
+            {
+                SetError("左右两侧都没有可解码的贴图。");
+                return;
+            }
+            CompareView.LeftLabel = _leftTexture == null
+                ? "无（新增）"
+                : string.IsNullOrWhiteSpace(_startup.LeftTitle) ? "历史" : _startup.LeftTitle;
+            CompareView.RightLabel = _rightTexture == null
+                ? "无（删除）"
+                : string.IsNullOrWhiteSpace(_startup.RightTitle) ? "本地" : _startup.RightTitle;
+            if (_leftTexture == null)
+                CompareView.WipeRatio = 0;
+            else if (_rightTexture == null)
+                CompareView.WipeRatio = 1;
             RebuildDiff();
             PushImages();
             UpdateFileInfo();
@@ -321,8 +340,39 @@ public partial class MainWindow : Window
         {
             SetBusy(false);
         }
-        if (_localPath != null)
-            await ReloadLogAsync(_localPath);
+        if (_leftTexture != null || _rightTexture != null)
+        {
+            if (_localPath != null && !_startup.FromTortoise && !IsSvnTempPath(_localPath))
+                await ReloadLogAsync(_localPath);
+        }
+    }
+
+    private static async Task<LoadedTexture?> TryLoadTextureAsync(string? path, CancellationToken ct)
+    {
+        if (!StartupArgs.IsUsable(path) || !ImageLoader.IsSupported(path!))
+            return null;
+        try
+        {
+            return await ImageLoader.LoadAsync(path!, ct);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Tortoise 抽出的临时文件，例如 icon.png.svn002.tmp.png。</summary>
+    private static bool IsSvnTempPath(string? path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return false;
+        var name = Path.GetFileName(path);
+        var i = name.IndexOf(".svn", StringComparison.OrdinalIgnoreCase);
+        return i >= 0 && name.IndexOf(".tmp.", i, StringComparison.OrdinalIgnoreCase) > i;
     }
 
     private async Task LoadRightAsync(string path)
@@ -418,6 +468,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            // 新增文件没有 BASE，保留已加载的本地图。
             SetError("无法获取历史版本：" + ex.Message);
         }
         finally
